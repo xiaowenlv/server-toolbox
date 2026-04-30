@@ -9,15 +9,9 @@ show_info_tt5srv() {
     echo -e "\${GREEN}=================================================\${NC}"
     
     # 从运行中的容器读取配置
-    if docker exec tt5srv test -f /srv/tt5srv.xml 2>/dev/null; then
-        echo -e "\${CYAN}已配置的用户：\${NC}"
-        docker exec tt5srv grep -oP '(?<=<username>)[^<]+' /srv/tt5srv.xml 2>/dev/null | while read u; do
-            echo -e "  - \${YELLOW}$u\${NC}"
-        done
-        echo -e "\${GREEN}=================================================\${NC}"
-        echo -e "\${CYAN}密码查看命令：\${NC}"
-        echo -e "  docker exec tt5srv cat /srv/tt5srv.xml | grep password"
-    else
+    echo -e "\${CYAN}配置文件内容（包含密码）：\${NC}"
+    docker exec tt5srv cat /srv/tt5srv.xml 2>/dev/null | grep -E '<user>|username|password|user-type' | sed 's/^/  /'
+    if [ ${PIPESTATUS[0]} -ne 0 ]; then
         echo -e "\${YELLOW}未找到配置文件，TT5SRV 可能未运行\${NC}"
     fi
     echo -e "\${GREEN}=================================================\${NC}"
