@@ -122,6 +122,24 @@ install_teamtalk() {
 config_teamtalk() {
     echo -e "${YELLOW}启动 TeamTalk 配置向导...${NC}"
     docker run -v $PWD/srv:/srv --rm -it --entrypoint tt5srv deepcomp/tt5srv:latest -wizard -wd /srv
+    
+    # 向导运行完毕后，自动检查并复制配置文件到正确位置
+    echo -e "${CYAN}正在检查并复制配置文件...${NC}"
+    if [ -f "$PWD/srv/srv/tt5srv.xml" ] && [ -s "$PWD/srv/srv/tt5srv.xml" ]; then
+        # 检查当前位置的配置文件是否是空的或很小，如果是才复制
+        CURRENT_SIZE=$(stat -c%s "$PWD/srv/tt5srv.xml" 2>/dev/null || echo 0)
+        WIZARD_SIZE=$(stat -c%s "$PWD/srv/srv/tt5srv.xml" 2>/dev/null || echo 0)
+
+        if [ "$CURRENT_SIZE" -lt 100 ] && [ "$WIZARD_SIZE" -gt 100 ]; then
+            cp "$PWD/srv/srv/tt5srv.xml" "$PWD/srv/tt5srv.xml"
+            echo -e "${GREEN}✅ 配置文件已复制到正确位置${NC}"
+        else
+            echo -e "${YELLOW}⚠️ 配置文件未修改或已存在，无需复制${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️ 未找到向导生成的新配置文件${NC}"
+    fi
+    
     echo -e "${GREEN}配置完毕！${NC}"
     pause
 }
@@ -135,16 +153,12 @@ install_hermes() {
     fi
 
     echo -e "${YELLOW}正在安装 Hermes (爱马仕)...${NC}"
-    
     echo -e "${CYAN}-> 正在拉取 HermesDeckX Docker Compose 配置...${NC}"
     curl -fsSL https://raw.githubusercontent.com/HermesDeckX/HermesDeckX/main/docker-compose.yml -o docker-compose.yml
-    
     echo -e "${CYAN}-> 正在启动容器...${NC}"
     docker compose up -d
-    
     echo -e "${CYAN}-> 正在进行健康检查 (请稍候 5 秒)...${NC}"
     sleep 5
-    
     if check_hermes_running; then
         local public_ip=$(curl -s4 ifconfig.me || echo "47.83.121.204")
         echo -e "${GREEN}=================================================${NC}"
