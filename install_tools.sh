@@ -155,26 +155,37 @@ install_hermes() {
     echo -e "${YELLOW}正在安装 Hermes (爱马仕)...${NC}"
     echo -e "${CYAN}-> 正在拉取 HermesDeckX Docker Compose 配置...${NC}"
     curl -fsSL https://raw.githubusercontent.com/HermesDeckX/HermesDeckX/main/docker-compose.yml -o docker-compose.yml
-    
     echo -e "${CYAN}-> 正在启动容器...${NC}"
     docker compose up -d
-    
     echo -e "${CYAN}-> 正在进行健康检查 (请稍候 10 秒)...${NC}"
     sleep 10
     
     if check_hermes_running; then
+        VPS_IP=$(curl -s4 ifconfig.me || echo "47.83.121.204")
         echo -e "${GREEN}=================================================${NC}"
         echo -e "${GREEN}✅ 恭喜！Hermes (爱马仕) 安装成功！${NC}"
         echo -e "${CYAN}正在提取初始账号信息...${NC}"
-        LOG=$(docker logs hermesdeckx 2>\&1 | grep -A3 "First-time setup" | head -8)
+        echo -e "${GREEN}=================================================${NC}"
+        LOG=$(docker logs hermesdeckx 2>\&1 | grep -A5 "First-time setup" | head -10)
         if [ -n "$LOG" ]; then
             echo -e "${YELLOW}$LOG${NC}"
         else
             echo -e "${YELLOW}⚠️ 未找到初始账号，请运行：docker logs hermesdeckx${NC}"
         fi
         echo -e "${GREEN}=================================================${NC}"
-        echo -e "${CYAN}正在提取初始账号信息...${NC}"
-        LOG=$(docker logs hermesdeckx 2>&1 | grep -A2 First-time
+        echo -e "  登录地址：http://$VPS_IP:19700"
+        echo -e "${GREEN}=================================================${NC}"
+        echo -e "⚠️ 请去阿里云安全组放行 19700 端口！"
+        echo -e "${GREEN}=================================================${NC}"
+    else
+        echo -e "${RED}=================================================${NC}"
+        echo -e "${RED}❌ 安装失败，请检查 Docker 和网络是否正常！${NC}"
+        echo -e "${RED}=================================================${NC}"
+    fi
+    pause
+}
+
+# ================= Hermes 爱马仕 安装函数 =================
 
 # ================= 专属子菜单构建器 =================
 menu_docker_app() {
