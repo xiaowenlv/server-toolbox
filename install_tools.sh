@@ -1,3 +1,29 @@
+
+show_info_tt5srv() {
+    VPS_IP=$(curl -s4 ifconfig.me || echo "47.83.121.204")
+    echo -e "${GREEN}=================================================${NC}"
+    echo -e "${GREEN}  TeamTalk 登录信息  ${NC}"
+    echo -e "${GREEN}=================================================${NC}"
+    echo -e "  服务器：${YELLOW}$VPS_IP${NC}"
+    echo -e "  端口：${YELLOW}10333${NC}"
+    echo -e "${GREEN}=================================================${NC}"
+    
+    # 从配置读取账号
+    if [ -f "/root/srv/tt5srv.xml" ]; then
+        USER_LIST=$(grep -oP '(?<=<username>)[^<]+' /root/srv/tt5srv.xml 2>/dev/null)
+        if [ -n "$USER_LIST" ]; then
+            echo -e "${CYAN}已配置的用户：${NC}"
+            echo "$USER_LIST" | while read u; do
+                echo -e "  - ${YELLOW}$u${NC}"
+            done
+        fi
+    else
+        echo -e "${YELLOW}未找到配置文件${NC}"
+    fi
+    echo -e "${GREEN}=================================================${NC}"
+    pause
+}
+
 #!/bin/bash
 
 # ================= 颜色定义 =================
@@ -301,10 +327,50 @@ while true; do
         3) menu_xui ;;
         4) menu_docker_app "lucky" "install_lucky" "" "" ;;
         5) menu_docker_app "frps" "install_frps" "" "" ;;
-        6) menu_docker_app "tt5srv" "install_teamtalk" "运行配置向导" "config_teamtalk" ;;
-        7) menu_hermes ;;
+        6) 
+            while true; do
+                clear; echo -e "${CYAN}========== 管理 [TeamTalk] ==========${NC}"
+                echo "  1. 安装 TeamTalk"
+                echo "  2. 启动/重启 TeamTalk"
+                echo "  3. 停止 TeamTalk"
+                echo "  4. 运行配置向导"
+                echo "  5. 查看登录信息"
+                echo "  0. 返回主菜单"
+                echo -e "${CYAN}=================================${NC}"
+                read -p "请选择: " tt_ch
+                case "$tt_ch" in
+                    1) install_teamtalk ;;
+                    2) manage_docker_container "restart" "tt5srv" ;;
+                    3) manage_docker_container "stop" "tt5srv" ;;
+                    4) config_teamtalk ;;
+                    5) show_info_tt5srv ;;
+                    0) break ;;
+                    *) echo -e "${RED}输入错误！${NC}"; sleep 1 ;;
+                esac
+            done ;;
+        7)
         8) install_sbox_shortcut ;;
         0) echo -e "${GREEN}感谢使用，再见！${NC}"; exit 0 ;;
         *) echo -e "${RED}输入错误，请输入有效数字！${NC}"; sleep 1 ;;
     esac
 done
+
+
+show_info_hermes() {
+    VPS_IP=$(curl -s4 ifconfig.me || echo "47.83.121.204")
+    echo -e "${GREEN}=================================================${NC}"
+    echo -e "${GREEN}  Hermes 登录信息  ${NC}"
+    echo -e "${GREEN}=================================================${NC}"
+    echo -e "  登录地址：${YELLOW}http://$VPS_IP:19700${NC}"
+    echo -e "${GREEN}=================================================${NC}"
+    
+    LOG=$(docker logs hermesdeckx 2>\&1 | grep -A5 "First-time setup" | head -10)
+    if [ -n "$LOG" ]; then
+        echo -e "${CYAN}初始账号信息：${NC}"
+        echo -e "${YELLOW}$LOG${NC}"
+    else
+        echo -e "${YELLOW}未找到初始账号，请运行：docker logs hermesdeckx${NC}"
+    fi
+    echo -e "${GREEN}=================================================${NC}"
+    pause
+}
