@@ -272,6 +272,7 @@ menu_hermes() {
         echo "  1. 一键部署 Hermes"
         echo "  2. 启动/重启 Hermes"
         echo "  3. 停止 Hermes"
+        echo "  4. 查看登录信息"
         echo "  0. 返回主菜单"
         echo -e "${CYAN}==========================================${NC}"
         read -p "请选择: " sub_ch
