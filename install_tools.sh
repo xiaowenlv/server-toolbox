@@ -280,6 +280,7 @@ menu_hermes() {
             1) if ! command -v docker &> /dev/null; then echo -e "${RED}请先安装 Docker！${NC}"; pause; else install_hermes; fi ;;
             2) docker compose -f docker-compose.yml restart 2>/dev/null || docker restart $(docker ps --filter "name=hermes" --format "{{.Names}}") 2>/dev/null; echo -e "${GREEN}已发送重启指令！${NC}"; pause ;;
             3) docker compose -f docker-compose.yml stop 2>/dev/null || docker stop $(docker ps --filter "name=hermes" --format "{{.Names}}") 2>/dev/null; echo -e "${GREEN}已停止！${NC}"; pause ;;
+            4) show_info_hermes ;;
             0) break ;;
             *) echo -e "${RED}输入错误！${NC}"; sleep 1 ;;
         esac
