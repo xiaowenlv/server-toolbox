@@ -350,7 +350,7 @@ while true; do
                     *) echo -e "${RED}输入错误！${NC}"; sleep 1 ;;
                 esac
             done ;;
-        7)
+        7) menu_hermes ;;
         8) install_sbox_shortcut ;;
         0) echo -e "${GREEN}感谢使用，再见！${NC}"; exit 0 ;;
         *) echo -e "${RED}输入错误，请输入有效数字！${NC}"; sleep 1 ;;
