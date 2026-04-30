@@ -1,28 +1,29 @@
 
 show_info_tt5srv() {
     VPS_IP=$(curl -s4 ifconfig.me || echo "47.83.121.204")
-    echo -e "${GREEN}=================================================${NC}"
-    echo -e "${GREEN}  TeamTalk 登录信息  ${NC}"
-    echo -e "${GREEN}=================================================${NC}"
-    echo -e "  服务器：${YELLOW}$VPS_IP${NC}"
-    echo -e "  端口：${YELLOW}10333${NC}"
-    echo -e "${GREEN}=================================================${NC}"
+    echo -e "\${GREEN}=================================================\${NC}"
+    echo -e "\${GREEN}  TeamTalk 登录信息  \${NC}"
+    echo -e "\${GREEN}=================================================\${NC}"
+    echo -e "  服务器：\${YELLOW}$VPS_IP\${NC}"
+    echo -e "  端口：\${YELLOW}10333\${NC}"
+    echo -e "\${GREEN}=================================================\${NC}"
     
-    # 从配置读取账号
-    if [ -f "/root/srv/tt5srv.xml" ]; then
-        USER_LIST=$(grep -oP '(?<=<username>)[^<]+' /root/srv/tt5srv.xml 2>/dev/null)
-        if [ -n "$USER_LIST" ]; then
-            echo -e "${CYAN}已配置的用户：${NC}"
-            echo "$USER_LIST" | while read u; do
-                echo -e "  - ${YELLOW}$u${NC}"
-            done
-        fi
+    # 从运行中的容器读取配置
+    if docker exec tt5srv test -f /srv/tt5srv.xml 2>/dev/null; then
+        echo -e "\${CYAN}已配置的用户：\${NC}"
+        docker exec tt5srv grep -oP '(?<=<username>)[^<]+' /srv/tt5srv.xml 2>/dev/null | while read u; do
+            echo -e "  - \${YELLOW}$u\${NC}"
+        done
+        echo -e "\${GREEN}=================================================\${NC}"
+        echo -e "\${CYAN}密码查看命令：\${NC}"
+        echo -e "  docker exec tt5srv cat /srv/tt5srv.xml | grep password"
     else
-        echo -e "${YELLOW}未找到配置文件${NC}"
+        echo -e "\${YELLOW}未找到配置文件，TT5SRV 可能未运行\${NC}"
     fi
-    echo -e "${GREEN}=================================================${NC}"
+    echo -e "\${GREEN}=================================================\${NC}"
     pause
 }
+
 
 #!/bin/bash
 
@@ -360,19 +361,32 @@ done
 
 show_info_hermes() {
     VPS_IP=$(curl -s4 ifconfig.me || echo "47.83.121.204")
-    echo -e "${GREEN}=================================================${NC}"
-    echo -e "${GREEN}  Hermes 登录信息  ${NC}"
-    echo -e "${GREEN}=================================================${NC}"
-    echo -e "  登录地址：${YELLOW}http://$VPS_IP:19700${NC}"
-    echo -e "${GREEN}=================================================${NC}"
+    echo -e "\${GREEN}=================================================\${NC}"
+    echo -e "\${GREEN}  Hermes 登录信息  \${NC}"
+    echo -e "\${GREEN}=================================================\${NC}"
+    echo -e "  登录地址：\${YELLOW}http://$VPS_IP:19700\${NC}"
+    echo -e "\${GREEN}=================================================\${NC}"
     
-    LOG=$(docker logs hermesdeckx 2>\&1 | grep -A5 "First-time setup" | head -10)
-    if [ -n "$LOG" ]; then
-        echo -e "${CYAN}初始账号信息：${NC}"
-        echo -e "${YELLOW}$LOG${NC}"
-    else
-        echo -e "${YELLOW}未找到初始账号，请运行：docker logs hermesdeckx${NC}"
+    # 从数据库读取用户名
+    docker cp hermesdeckx:/data/hermesdeckx/HermesDeckX.db /tmp/hermes_show.db 2>/dev/null
+    USERS=$(python3 -c "
+import sqlite3
+conn = sqlite3.connect('/tmp/hermes_show.db')
+c = conn.cursor()
+c.execute('SELECT username FROM users')
+for u in c.fetchall():
+    print(u[0])
+conn.close()
+" 2>/dev/null)
+    if [ -n "$USERS" ]; then
+        echo -e "\${CYAN}已注册的用户：\${NC}"
+        echo "$USERS" | while read u; do
+            echo -e "  - \${YELLOW}$u\${NC}"
+        done
     fi
-    echo -e "${GREEN}=================================================${NC}"
+    echo -e "\${GREEN}=================================================\${NC}"
+    echo -e "\${YELLOW}初始密码：docker logs hermesdeckx | grep First-time\${NC}"
+    echo -e "\${GREEN}=================================================\${NC}"
     pause
 }
+
