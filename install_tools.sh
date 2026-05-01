@@ -1,20 +1,32 @@
+#!/bin/bash
 
 show_info_tt5srv() {
     VPS_IP=$(curl -s4 ifconfig.me || echo "47.83.121.204")
-    echo -e "\${GREEN}=================================================\${NC}"
-    echo -e "\${GREEN}  TeamTalk 登录信息  \${NC}"
-    echo -e "\${GREEN}=================================================\${NC}"
-    echo -e "  服务器：\${YELLOW}$VPS_IP\${NC}"
-    echo -e "  端口：\${YELLOW}10333\${NC}"
-    echo -e "\${GREEN}=================================================\${NC}"
-    
-    # 从运行中的容器读取配置
-    echo -e "\${CYAN}配置文件内容（包含密码）：\${NC}"
-    docker exec tt5srv cat /srv/tt5srv.xml 2>/dev/null | grep -E '<user>|username|password|user-type' | sed 's/^/  /'
-    if [ ${PIPESTATUS[0]} -ne 0 ]; then
-        echo -e "\${YELLOW}未找到配置文件，TT5SRV 可能未运行\${NC}"
-    fi
-    echo -e "\${GREEN}=================================================\${NC}"
+    echo -e "${GREEN}=================================================${NC}"
+    echo -e "${GREEN}  TeamTalk 登录信息  ${NC}"
+    echo -e "${GREEN}=================================================${NC}"
+    echo -e "  服务器：${YELLOW}$VPS_IP${NC}"
+    echo -e "  端口：${YELLOW}10333${NC}"
+    echo -e "${GREEN}=================================================${NC}"
+
+    echo -e "${CYAN}已配置的用户：${NC}"
+    docker exec tt5srv test -f /srv/tt5srv.xml 2>/dev/null &&     docker exec tt5srv cat /srv/tt5srv.xml 2>/dev/null | python3 -c "
+import sys, re
+xml = sys.stdin.read()
+users = re.findall(r'<user>(.*?)</user>', xml, re.DOTALL)
+if users:
+    for i, u in enumerate(users, 1):
+        uname = re.search(r'<username>([^<]+)</username>', u)
+        pwd   = re.search(r'<password>([^<]*)</password>', u)
+        utype = re.search(r'<user-type>([^<]*)</user-type>', u)
+        name = uname.group(1) if uname else '?'
+        pval = pwd.group(1) if pwd and pwd.group(1) else '(空)'
+        tval = utype.group(1) if utype else '?'
+        print(f'  用户{i}: {name}  |  密码: {pval}  |  类型: {tval}')
+else:
+    print('  (未找到用户配置)')
+" || echo -e "${YELLOW}未找到配置文件，TT5SRV 可能未运行${NC}"
+    echo -e "${GREEN}=================================================${NC}"
     pause
 }
 
@@ -275,7 +287,18 @@ menu_hermes() {
             1) if ! command -v docker &> /dev/null; then echo -e "${RED}请先安装 Docker！${NC}"; pause; else install_hermes; fi ;;
             2) docker compose -f docker-compose.yml restart 2>/dev/null || docker restart $(docker ps --filter "name=hermes" --format "{{.Names}}") 2>/dev/null; echo -e "${GREEN}已发送重启指令！${NC}"; pause ;;
             3) docker compose -f docker-compose.yml stop 2>/dev/null || docker stop $(docker ps --filter "name=hermes" --format "{{.Names}}") 2>/dev/null; echo -e "${GREEN}已停止！${NC}"; pause ;;
-            4) show_info_hermes ;;
+            4) # --- Hermes Info (inline) ---
+            VPS_IP=$(curl -s4 ifconfig.me || echo "47.83.121.204")
+            echo -e "${GREEN}=================================================${NC}"
+            echo -e "${GREEN}  Hermes 登录信息  ${NC}"
+            echo -e "${GREEN}=================================================${NC}"
+            echo -e "  登录地址：${YELLOW}http://$VPS_IP:19700${NC}"
+            echo -e "${GREEN}=================================================${NC}"
+            docker exec hermesdeckx test -f /data/hermesdeckx/HermesDeckX.db 2>/dev/null &&             docker cp hermesdeckx:/data/hermesdeckx/HermesDeckX.db /tmp/h.db 2>/dev/null &&             python3 -c "import sqlite3; c=sqlite3.connect('/tmp/h.db').cursor(); print('已注册:', [u[0] for u in c.execute('SELECT username FROM users')] or ['(无)'])" 2>/dev/null || echo "Hermes未运行或无数据"
+            echo -e "${YELLOW}初始密码：$(docker logs hermesdeckx 2>&1 | grep 'Password:' | sed 's/.*Password:[[:space:]]*//' | tr -d ' |' | head -1 2>/dev/null || echo '请查看日志')${NC}"
+            echo -e "${GREEN}=================================================${NC}"
+            echo -n "按任意键继续..." && read -n 1 -s
+            ;;
             0) break ;;
             *) echo -e "${RED}输入错误！${NC}"; sleep 1 ;;
         esac
@@ -353,34 +376,4 @@ while true; do
 done
 
 
-show_info_hermes() {
-    VPS_IP=$(curl -s4 ifconfig.me || echo "47.83.121.204")
-    echo -e "\${GREEN}=================================================\${NC}"
-    echo -e "\${GREEN}  Hermes 登录信息  \${NC}"
-    echo -e "\${GREEN}=================================================\${NC}"
-    echo -e "  登录地址：\${YELLOW}http://$VPS_IP:19700\${NC}"
-    echo -e "\${GREEN}=================================================\${NC}"
-    
-    # 从数据库读取用户名
-    docker cp hermesdeckx:/data/hermesdeckx/HermesDeckX.db /tmp/hermes_show.db 2>/dev/null
-    USERS=$(python3 -c "
-import sqlite3
-conn = sqlite3.connect('/tmp/hermes_show.db')
-c = conn.cursor()
-c.execute('SELECT username FROM users')
-for u in c.fetchall():
-    print(u[0])
-conn.close()
-" 2>/dev/null)
-    if [ -n "$USERS" ]; then
-        echo -e "\${CYAN}已注册的用户：\${NC}"
-        echo "$USERS" | while read u; do
-            echo -e "  - \${YELLOW}$u\${NC}"
-        done
-    fi
-    echo -e "\${GREEN}=================================================\${NC}"
-    echo -e "\${YELLOW}初始密码：docker logs hermesdeckx | grep First-time\${NC}"
-    echo -e "\${GREEN}=================================================\${NC}"
-    pause
-}
 
