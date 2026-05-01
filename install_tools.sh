@@ -145,8 +145,21 @@ install_teamtalk() {
     if check_container "tt5srv"; then
         echo -e "${GREEN}TeamTalk 服务端已安装！${NC}"
     else
-        echo -e "${YELLOW}正在安装 TeamTalk (数据保存在当前目录: $PWD)...${NC}"
-        docker run --network host -v $PWD:/srv -d --name tt5srv deepcomp/tt5srv:latest
+        echo -e "${YELLOW}正在安装 TeamTalk...${NC}"
+        mkdir -p "$PWD/srv"
+        # 第一步：先跑配置向导（在临时容器中）
+        echo -e "${CYAN}正在启动配置向导...${NC}"
+        docker run -v "$PWD/srv:/srv" --rm -i --entrypoint tt5srv deepcomp/tt5srv:latest -wizard -wd /srv
+        # 复制向导输出到正确位置
+        for f in "$PWD/srv/srv/tt5srv.xml" "$PWD/srv/tt5srv.xml"; do
+            if [ -f "$f" ] && [ -s "$f" ]; then
+                cp "$f" /root/tt5srv.xml 2>/dev/null
+                break
+            fi
+        done
+        # 第二步：用配置好的文件启动正式容器
+        echo -e "${CYAN}正在启动 TeamTalk 服务...${NC}"
+        docker run --network host -v /root:/srv -d --name tt5srv deepcomp/tt5srv:latest
         echo -e "${GREEN}TeamTalk 安装完成！${NC}"
     fi
     pause
@@ -154,26 +167,17 @@ install_teamtalk() {
 
 config_teamtalk() {
     echo -e "${YELLOW}启动 TeamTalk 配置向导...${NC}"
-    docker run -v $PWD/srv:/srv --rm -it --entrypoint tt5srv deepcomp/tt5srv:latest -wizard -wd /srv
-    
-    # 向导运行完毕后，自动检查并复制配置文件到正确位置
-    echo -e "${CYAN}正在检查并复制配置文件...${NC}"
-    if [ -f "$PWD/srv/srv/tt5srv.xml" ] && [ -s "$PWD/srv/srv/tt5srv.xml" ]; then
-        # 检查当前位置的配置文件是否是空的或很小，如果是才复制
-        CURRENT_SIZE=$(stat -c%s "$PWD/srv/tt5srv.xml" 2>/dev/null || echo 0)
-        WIZARD_SIZE=$(stat -c%s "$PWD/srv/srv/tt5srv.xml" 2>/dev/null || echo 0)
-
-        if [ "$CURRENT_SIZE" -lt 100 ] && [ "$WIZARD_SIZE" -gt 100 ]; then
-            cp "$PWD/srv/srv/tt5srv.xml" "$PWD/srv/tt5srv.xml"
-            echo -e "${GREEN}✅ 配置文件已复制到正确位置${NC}"
-        else
-            echo -e "${YELLOW}⚠️ 配置文件未修改或已存在，无需复制${NC}"
+    mkdir -p "$PWD/srv"
+    docker run -v "$PWD/srv:/srv" --rm -i --entrypoint tt5srv deepcomp/tt5srv:latest -wizard -wd /srv
+    # 复制到容器能读取的位置
+    for f in "$PWD/srv/srv/tt5srv.xml" "$PWD/srv/tt5srv.xml"; do
+        if [ -f "$f" ] && [ -s "$f" ]; then
+            cp "$f" /root/tt5srv.xml 2>/dev/null
+            echo -e "${GREEN}✅ 配置文件已更新！${NC}"
+            break
         fi
-    else
-        echo -e "${YELLOW}⚠️ 未找到向导生成的新配置文件${NC}"
-    fi
-    
-    echo -e "${GREEN}配置完毕！${NC}"
+    done
+    echo -e "${YELLOW}请重启 TeamTalk 使配置生效：选 6→2${NC}"
     pause
 }
 
