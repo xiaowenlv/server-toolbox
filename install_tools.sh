@@ -40,7 +40,7 @@ CYAN='\033[0;36m'
 RED='\033[0;31m'
 NC='\033[0m'
 SBOX_CMD="sbox"
-SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+# SCRIPT_PATH no longer used for symlink - always install to /root/install_tools.sh
 
 # ================= 快捷命令安装函数 =================
 install_sbox_shortcut() {
