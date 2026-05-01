@@ -44,19 +44,21 @@ SBOX_CMD="sbox"
 
 # ================= 快捷命令安装函数 =================
 install_sbox_shortcut() {
-    if [ -L "/usr/local/bin/$SBOX_CMD" ] || [ -f "/usr/local/bin/$SBOX_CMD" ]; then
-        return
+    INSTALL_TARGET="/root/install_tools.sh"
+    # 如果脚本不在目标位置，先复制过去
+    SCRIPT_HERE="$(readlink -f "$0" 2>/dev/null || echo "$0")"
+    if [ "$SCRIPT_HERE" != "$INSTALL_TARGET" ] && [ -f "$SCRIPT_HERE" ]; then
+        cp -f "$SCRIPT_HERE" "$INSTALL_TARGET" 2>/dev/null
     fi
-    echo -e "${YELLOW}首次运行，正在创建快捷命令 [$SBOX_CMD]...${NC}"
-    if ln -sf "$SCRIPT_PATH" /usr/local/bin/$SBOX_CMD 2>/dev/null; then
-        echo -e "${GREEN}✅ 快捷命令创建成功！以后输入 '$SBOX_CMD' 即可打开本工具箱${NC}"
+    # 创建或更新 symlink
+    ln -sf "$INSTALL_TARGET" /usr/local/bin/$SBOX_CMD 2>/dev/null
+    if [ -L "/usr/local/bin/$SBOX_CMD" ]; then
+        echo -e "${GREEN}✅ 快捷命令已就绪！以后输入 '${SBOX_CMD}' 即可打开本工具箱${NC}"
     else
-        echo -e "${RED}⚠️ 创建快捷命令失败，可能需要 sudo 权限，请尝试：${NC}"
-        echo -e "   sudo ln -sf $SCRIPT_PATH /usr/local/bin/$SBOX_CMD"
+        echo -e "${RED}⚠️ 创建快捷命令失败，请手动运行：sudo ln -sf $INSTALL_TARGET /usr/local/bin/$SBOX_CMD${NC}"
     fi
     pause
 }
-
 pause() {
     echo -e "\n${YELLOW}按任意键返回...${NC}"
     read -n 1 -s -r
