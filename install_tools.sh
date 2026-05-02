@@ -158,7 +158,18 @@ install_teamtalk() {
                 cp "$f" /root/tt5srv.xml 2>/dev/null
                 break
             fi
-        done
+        # ================= 服务器运维工具函数 =================
+run_server_maintenance() {
+    MAINT_SCRIPT="/root/server_maintenance.sh"
+    if [ ! -f "$MAINT_SCRIPT" ]; then
+        echo -e "${CYAN}正在下载服务器运维工具...${NC}"
+        curl -fsSL https://raw.githubusercontent.com/xiaowenlv/server-toolbox/main/server_maintenance.sh -o "$MAINT_SCRIPT"
+        chmod +x "$MAINT_SCRIPT"
+    fi
+    bash "$MAINT_SCRIPT"
+}
+
+done
         # 第二步：用配置好的文件启动正式容器
         echo -e "${CYAN}正在启动 TeamTalk 服务...${NC}"
         docker run --network host -v /root:/srv -d --name tt5srv deepcomp/tt5srv:latest
@@ -382,7 +393,7 @@ while true; do
         *) echo -e "${RED}输入错误，请输入有效数字！${NC}"; sleep 1 ;;
     esac
 done
-run_server_maintenance() {
+() {
     MAINT_SCRIPT="/root/server_maintenance.sh"
     if [ ! -f "$MAINT_SCRIPT" ]; then
         echo -e "${CYAN}正在下载服务器运维工具...${NC}"
