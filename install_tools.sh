@@ -325,6 +325,18 @@ menu_hermes() {
 # ================= 主菜单逻辑 =================
 install_sbox_shortcut
 
+
+# ================= 服务器运维工具函数 =================
+run_server_maintenance() {
+    MAINT_SCRIPT="/root/server_maintenance.sh"
+    if [ ! -f "$MAINT_SCRIPT" ]; then
+        echo -e "${CYAN}正在下载服务器运维工具...${NC}"
+        curl -fsSL https://raw.githubusercontent.com/xiaowenlv/server-toolbox/main/server_maintenance.sh -o "$MAINT_SCRIPT"
+        chmod +x "$MAINT_SCRIPT"
+    fi
+    bash "$MAINT_SCRIPT"
+}
+
 while true; do
     clear
     echo -e "${GREEN}=================================================${NC}"
@@ -342,7 +354,7 @@ while true; do
     echo "   7. Hermes    (爱马仕-中文智能体控制台)"
     echo -e "${GREEN}=================================================${NC}"
     echo "   8. 创建/更新快捷命令 ($SBOX_CMD)"
-        echo -e "  9. 服务器运维工具"
+    echo "   9. 服务器运维工具"
     echo "   0. 退出工具箱"
     echo ""
     read -p "请输入要管理的工具序号 [0-9]: " main_choice
@@ -393,10 +405,7 @@ while true; do
         *) echo -e "${RED}输入错误，请输入有效数字！${NC}"; sleep 1 ;;
     esac
 done
-() {
-    MAINT_SCRIPT="/root/server_maintenance.sh"
-    if [ ! -f "$MAINT_SCRIPT" ]; then
-        echo -e "${CYAN}正在下载服务器运维工具...${NC}"
+正在下载服务器运维工具...${NC}"
         curl -fsSL https://raw.githubusercontent.com/xiaowenlv/server-toolbox/main/server_maintenance.sh -o "$MAINT_SCRIPT"
         chmod +x "$MAINT_SCRIPT"
     fi
