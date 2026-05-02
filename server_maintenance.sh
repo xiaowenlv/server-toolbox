@@ -448,9 +448,9 @@ set_chinese_locale() {
     echo -e "${GREEN}  中文语言 + 上海时区设置  ${NC}"
     echo -e "${GREEN}=================================================${NC}"
     echo -e "${CYAN}此操作将分两步执行：${NC}"
-    echo -e "  第1步：安装中文语言包"
+    echo -e "  第1步：安装中文语言包并设置为系统语言"
     echo -e "  第2步：设置时区为 Asia/Shanghai"
-    echo -e "${YELLOW}第1步成功后才会执行第2步${NC}"
+    echo -e "${YELLOW}第1步验证通过后才会执行第2步${NC}"
     echo -e "${GREEN}=================================================${NC}"
 
     # ---- 第1步：安装中文语言包 ----
@@ -458,59 +458,69 @@ set_chinese_locale() {
     echo -e "${CYAN}【第1步/2】安装中文语言包 (zh_CN.UTF-8)...${NC}"
 
     # 检测当前语言
-    CURRENT_LANG=$(locale 2>/dev/null | grep LANG | head -1 | cut -d= -f2 | tr -d '"')
+    CURRENT_LANG=$(locale 2>/dev/null | grep "^LANG=" | head -1 | cut -d= -f2 | tr -d '"')
     echo -e "  当前语言：${YELLOW}${CURRENT_LANG}${NC}"
 
+    STEP1_OK=false
+
     if echo "$CURRENT_LANG" | grep -qi "zh_CN.UTF-8"; then
-        echo -e "  ${GREEN}✅ 已经是中文语言，跳过${NC}"
+        echo -e "  ${GREEN}✅ 已经是中文语言，跳过安装${NC}"
         STEP1_OK=true
     else
-        # 检测系统包管理器
-        if command -v apt-get &>/dev/null; then
-            PKG_MGR="apt"
-            echo -e "  使用 apt 安装..."
-            apt-get update -qq
-            apt-get install -y locales
-            sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen 2>/dev/null
-            sed -i 's/# zh_CN.UTF-8/zh_CN.UTF-8/' /etc/locale.gen 2>/dev/null
-            locale-gen zh_CN.UTF-8 en_US.UTF-8 > /dev/null 2>&1
-            update-locale LANG=zh_CN.UTF-8 > /dev/null 2>&1
-            STEP1_OK=true
-        elif command -v yum &>/dev/null; then
-            PKG_MGR="yum"
-            echo -e "  使用 yum 安装..."
-            yum install -y langpacks-zh_CN glibc-langpack-zh > /dev/null 2>&1
-            if [ $? -eq 0 ]; then
-                localectl set-locale LANG=zh_CN.UTF-8 > /dev/null 2>&1
-                STEP1_OK=true
-            else
-                STEP1_OK=false
-            fi
-        elif command -v dnf &>/dev/null; then
-            PKG_MGR="dnf"
-            echo -e "  使用 dnf 安装..."
-            dnf install -y langpacks-zh_CN glibc-langpack-zh > /dev/null 2>&1
-            if [ $? -eq 0 ]; then
-                localectl set-locale LANG=zh_CN.UTF-8 > /dev/null 2>&1
-                STEP1_OK=true
-            else
-                STEP1_OK=false
-            fi
-        else
-            echo -e "  ${RED}❌ 未识别的包管理器${NC}"
-            STEP1_OK=false
-        fi
+        # 安装 locales 包
+        echo -e "  ${CYAN}正在安装 locales 包...${NC}"
+        apt-get update -qq 2>/dev/null
+        apt-get install -y locales 2>/dev/null
 
-        if [ "$STEP1_OK" = true ]; then
-            echo -e "  ${GREEN}✅ 中文语言包安装成功${NC}"
+        # 启用 zh_CN.UTF-8 locale
+        echo -e "  ${CYAN}正在生成中文 locale...${NC}"
+        sed -i 's/# zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen 2>/dev/null
+        sed -i 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen 2>/dev/null
+        locale-gen zh_CN.UTF-8 en_US.UTF-8 2>/dev/null
+
+        # === 验证1：locale-gen 是否成功生成了 zh_CN.UTF-8 ===
+        if locale -a 2>/dev/null | grep -qi "zh_CN.utf8\|zh_CN.UTF-8"; then
+            echo -e "  ${GREEN}✅ locale-gen 成功，zh_CN.UTF-8 已生成${NC}"
         else
-            echo -e "  ${RED}❌ 中文语言包安装失败${NC}"
+            echo -e "  ${RED}❌ locale-gen 失败，zh_CN.UTF-8 未生成${NC}"
             echo -e "${RED}=================================================${NC}"
-            echo -e "${YELLOW}第1步失败，中止执行第2步${NC}"
+            echo -e "${YELLOW}第1步失败：locale 生成失败，中止执行${NC}"
             pause
             return
         fi
+
+        # 设置系统默认语言
+        echo -e "  ${CYAN}正在设置系统默认语言...${NC}"
+        update-locale LANG=zh_CN.UTF-8 2>/dev/null
+
+        # === 验证2：/etc/default/locale 是否包含 zh_CN.UTF-8 ===
+        if grep -q "zh_CN.UTF-8" /etc/default/locale 2>/dev/null; then
+            echo -e "  ${GREEN}✅ 系统语言已设置为 zh_CN.UTF-8${NC}"
+            STEP1_OK=true
+        else
+            # 备用方案：直接写入
+            echo "LANG=zh_CN.UTF-8" > /etc/default/locale
+            if grep -q "zh_CN.UTF-8" /etc/default/locale 2>/dev/null; then
+                echo -e "  ${GREEN}✅ 系统语言已设置为 zh_CN.UTF-8（备用方案）${NC}"
+                STEP1_OK=true
+            else
+                echo -e "  ${RED}❌ 无法设置系统语言${NC}"
+            fi
+        fi
     fi
+
+    # === 第1步最终验证 ===
+    if [ "$STEP1_OK" != true ]; then
+        echo ""
+        echo -e "${RED}=================================================${NC}"
+        echo -e "${YELLOW}⚠ 第1步未通过验证，中止执行第2步${NC}"
+        echo -e "${YELLOW}请检查系统 locale 配置后重试${NC}"
+        pause
+        return
+    fi
+
+    echo ""
+    echo -e "${GREEN}✅ 第1步完成：中文语言包已安装并设置${NC}"
 
     # ---- 第2步：设置时区 ----
     echo ""
@@ -519,41 +529,56 @@ set_chinese_locale() {
     CURRENT_TZ=$(timedatectl 2>/dev/null | grep "Time zone" | awk '{print $3}')
     echo -e "  当前时区：${YELLOW}${CURRENT_TZ}${NC}"
 
+    STEP2_OK=false
+
     if [ "$CURRENT_TZ" = "Asia/Shanghai" ]; then
         echo -e "  ${GREEN}✅ 已经是上海时区，跳过${NC}"
+        STEP2_OK=true
     else
         # 尝试用 timedatectl
         if command -v timedatectl &>/dev/null; then
             timedatectl set-timezone Asia/Shanghai 2>/dev/null
-            if [ $? -eq 0 ]; then
+            NEW_TZ=$(timedatectl 2>/dev/null | grep "Time zone" | awk '{print $3}')
+            if [ "$NEW_TZ" = "Asia/Shanghai" ]; then
                 echo -e "  ${GREEN}✅ 时区已设置为 Asia/Shanghai${NC}"
-            else
-                echo -e "  ${RED}❌ timedatectl 设置失败，尝试软链接方式...${NC}"
-                # 备用方案：软链接
-                rm -f /etc/localtime
-                ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-                echo "Asia/Shanghai" > /etc/timezone
-                echo -e "  ${GREEN}✅ 时区已设置为 Asia/Shanghai（软链接方式）${NC}"
+                STEP2_OK=true
             fi
-        else
+        fi
+
+        # 备用方案：软链接
+        if [ "$STEP2_OK" != true ]; then
+            echo -e "  ${YELLOW}timedatectl 失败，尝试软链接方式...${NC}"
             rm -f /etc/localtime
             ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-            echo "Asia/Shanghai" > /etc/timezone
-            echo -e "  ${GREEN}✅ 时区已设置为 Asia/Shanghai（软链接方式）${NC}"
+            echo "Asia/Shanghai" > /etc/timezone 2>/dev/null
+            # 验证
+            CHECK_TZ=$(readlink /etc/localtime 2>/dev/null)
+            if echo "$CHECK_TZ" | grep -q "Shanghai"; then
+                echo -e "  ${GREEN}✅ 时区已设置为 Asia/Shanghai（软链接方式）${NC}"
+                STEP2_OK=true
+            else
+                echo -e "  ${RED}❌ 时区设置失败${NC}"
+            fi
         fi
     fi
 
-    # 验证结果
+    # === 最终结果 ===
     echo ""
     echo -e "${CYAN}【设置结果】${NC}"
-    echo -e "  系统语言：${YELLOW}$(locale 2>/dev/null | grep LANG | head -1 | cut -d= -f2 | tr -d '"')${NC}"
-    echo -e "  系统时区：${YELLOW}$(timedatectl 2>/dev/null | grep "Time zone" | awk '{print $3}' || cat /etc/timezone 2>/dev/null)${NC}"
-    echo -e "  系统时间：${YELLOW}$(date '+%Y-%m-%d %H:%M:%S')${NC}"
+    echo -e "  系统语言：${YELLOW}$(locale 2>/dev/null | grep "^LANG=" | head -1 | cut -d= -f2 | tr -d '"')${NC}"
+    echo -e "  系统时区：${YELLOW}$(timedatectl 2>/dev/null | grep "Time zone" | awk '{print $3}' || readlink /etc/localtime 2>/dev/null)${NC}"
+    echo -e "  系统时间：${YELLOW}$(date '+%Y-%m-%d %H:%M:%S %Z')${NC}"
 
-    echo -e "${GREEN}=================================================${NC}"
+    if [ "$STEP1_OK" = true ] && [ "$STEP2_OK" = true ]; then
+        echo -e "${GREEN}=================================================${NC}"
+        echo -e "${GREEN}  ✅ 全部设置完成！重启后语言设置将完全生效${NC}"
+    else
+        echo -e "${YELLOW}=================================================${NC}"
+        echo -e "${YELLOW}  ⚠ 部分设置未成功，请检查上方日志${NC}"
+    fi
+
     pause
 }
-
 # ================= 主菜单 =================
 main_menu() {
     check_root
