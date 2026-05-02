@@ -84,10 +84,18 @@ firewall_menu() {
         # 检查防火墙状态
         if command -v ufw &>/dev/null; then
             UFW_STATUS=$(ufw status 2>/dev/null | head -1)
-            echo -e "  当前状态：${YELLOW}${UFW_STATUS}${NC}"
+            if echo "$UFW_STATUS" | grep -q "inactive"; then
+                echo -e "  当前状态：${YELLOW}已安装，未启用（防火墙未运行）${NC}"
+            else
+                echo -e "  当前状态：${GREEN}已启用（防火墙运行中）${NC}"
+            fi
         elif command -v firewall-cmd &>/dev/null; then
             FW_STATUS=$(systemctl is-active firewalld 2>/dev/null)
-            echo -e "  firewalld 状态：${YELLOW}${FW_STATUS}${NC}"
+            if [ "$FW_STATUS" = "active" ]; then
+                echo -e "  firewalld 状态：${GREEN}已启用${NC}"
+            else
+                echo -e "  firewalld 状态：${YELLOW}未启用${NC}"
+            fi
         else
             echo -e "  防火墙：${YELLOW}未安装${NC}"
         fi
@@ -342,21 +350,28 @@ manage_swap() {
     echo -e "${GREEN}  虚拟内存 (Swap) 管理  ${NC}"
     echo -e "${GREEN}=================================================${NC}"
 
-    # 当前 Swap 状态
+    # 当前内存和 Swap 状态
+    MEM_TOTAL=$(free -m | awk '/Mem/{print $2}')
+    MEM_USED=$(free -m | awk '/Mem/{print $3}')
     SWAP_TOTAL=$(free -m | awk '/Swap/{print $2}')
     SWAP_USED=$(free -m | awk '/Swap/{print $3}')
-    echo -e "${CYAN}【当前 Swap 状态】${NC}"
+
+    echo -e "${CYAN}【物理内存】${NC}"
+    echo -e "  总内存：${YELLOW}${MEM_TOTAL}MB${NC}"
+    echo -e "  已使用：${YELLOW}${MEM_USED}MB${NC}"
+
+    echo ""
+    echo -e "${CYAN}【虚拟内存 (Swap)】${NC}"
     if [ "$SWAP_TOTAL" -gt 0 ]; then
         echo -e "  总大小：${YELLOW}${SWAP_TOTAL}MB${NC}"
         echo -e "  已使用：${YELLOW}${SWAP_USED}MB${NC}"
+        if [ -f /swapfile ]; then
+            SWAP_SIZE=$(du -m /swapfile | awk '{print $1}')
+            echo -e "  Swap文件：${YELLOW}/swapfile (${SWAP_SIZE}MB)${NC}"
+        fi
     else
         echo -e "  ${YELLOW}未设置 Swap${NC}"
-    fi
-
-    # Swap 文件位置
-    if [ -f /swapfile ]; then
-        SWAP_SIZE=$(du -m /swapfile | awk '{print $1}')
-        echo -e "  Swap 文件：${YELLOW}/swapfile (${SWAP_SIZE}MB)${NC}"
+        echo -e "  ${CYAN}提示：小内存服务器建议创建 Swap 防止 OOM${NC}"
     fi
 
     echo -e "${GREEN}=================================================${NC}"
@@ -432,12 +447,38 @@ remove_swap() {
 }
 
 show_swap_detail() {
-    echo -e "${CYAN}【Swap 详细信息】${NC}"
-    swapon --show 2>/dev/null
+    echo -e "${CYAN}【内存信息】${NC}"
+    # 物理内存
+    MEM_TOTAL=$(free -m | awk '/Mem/{print $2}')
+    MEM_USED=$(free -m | awk '/Mem/{print $3}')
+    MEM_FREE=$(free -m | awk '/Mem/{print $4}')
+    MEM_AVAIL=$(free -m | awk '/Mem/{print $7}')
+    MEM_PCT=$(awk "BEGIN{printf "%.1f", $MEM_USED/$MEM_TOTAL*100}")
+    echo -e "  总内存：${YELLOW}${MEM_TOTAL}MB${NC}"
+    echo -e "  已使用：${YELLOW}${MEM_USED}MB (${MEM_PCT}%)${NC}"
+    echo -e "  可用：  ${YELLOW}${MEM_AVAIL}MB${NC}"
+    echo -e "  缓存：  ${YELLOW}${MEM_FREE}MB${NC}"
+
     echo ""
-    free -h | grep -E "Mem|Swap"
+    echo -e "${CYAN}【虚拟内存 (Swap)】${NC}"
+    SWAP_TOTAL=$(free -m | awk '/Swap/{print $2}')
+    SWAP_USED=$(free -m | awk '/Swap/{print $3}')
+    SWAP_FREE=$(free -m | awk '/Swap/{print $4}')
+    if [ "$SWAP_TOTAL" -gt 0 ]; then
+        SWAP_PCT=$(awk "BEGIN{printf "%.1f", $SWAP_USED/$SWAP_TOTAL*100}")
+        echo -e "  总大小：${YELLOW}${SWAP_TOTAL}MB${NC}"
+        echo -e "  已使用：${YELLOW}${SWAP_USED}MB (${SWAP_PCT}%)${NC}"
+        echo -e "  空闲：  ${YELLOW}${SWAP_FREE}MB${NC}"
+        echo -e "  Swap文件：${YELLOW}$(swapon --show 2>/dev/null | awk 'NR==2{print $1}')${NC}"
+    else
+        echo -e "  ${YELLOW}未设置 Swap 虚拟内存${NC}"
+        echo -e "  ${CYAN}提示：小内存服务器建议创建 1-2G Swap 防止 OOM${NC}"
+    fi
+
     echo ""
-    echo -e "  swappiness：$(sysctl vm.swappiness 2>/dev/null | awk '{print $3}')"
+    echo -e "${CYAN}【Swap 参数】${NC}"
+    echo -e "  swappiness：${YELLOW}$(sysctl vm.swappiness 2>/dev/null | awk '{print $3}')${NC}"
+    echo -e "  ${CYAN}(值越低越不倾向使用 Swap，推荐 10)${NC}"
     pause
 }
 
